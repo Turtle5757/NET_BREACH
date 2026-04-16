@@ -1,17 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>NET_BREACH: MULTIPLAYER</title>
+    <title>NET_BREACH: PUZZLES</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body { background: #000; color: #0f0; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .panel { border: 1px solid #0f0; padding: 20px; background: #050505; text-align: center; width: 90%; max-width: 400px; box-shadow: 0 0 15px rgba(0,255,0,0.2); }
+        .panel { border: 1px solid #0f0; padding: 20px; background: #050505; text-align: center; width: 90%; max-width: 450px; box-shadow: 0 0 15px rgba(0,255,0,0.2); }
         .hidden { display: none; }
-        .btn { background: #0f0; color: #000; border: none; padding: 12px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
-        input { background: #111; color: #0f0; border: 1px solid #0f0; padding: 10px; width: 90%; margin-bottom: 10px; outline: none; }
+        .btn { background: #0f0; color: #000; border: none; padding: 12px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; text-transform: uppercase; }
+        input { background: #111; color: #0f0; border: 1px solid #0f0; padding: 12px; width: 90%; margin-bottom: 10px; outline: none; font-size: 1.1rem; text-align: center; }
         #leaderboard { margin-top: 20px; text-align: left; font-size: 0.8rem; border-top: 1px solid #0f0; padding-top: 10px; }
         .player-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
-        #task { font-size: 1.4rem; color: #fff; margin-bottom: 15px; }
+        #task-type { color: #888; font-size: 0.7rem; margin-bottom: 5px; letter-spacing: 2px; }
+        #task { font-size: 1.3rem; color: #fff; margin-bottom: 20px; min-height: 50px; display: flex; align-items: center; justify-content: center; border: 1px dashed #333; padding: 10px; }
     </style>
 </head>
 <body>
@@ -19,23 +20,23 @@
     <div id="login-screen" class="panel">
         <h1>NET_BREACH</h1>
         <input type="text" id="roomInput" placeholder="LOBBY_ID">
-        <button class="btn" onclick="join()">CONNECT</button>
+        <button class="btn" onclick="join()">CONNECT TO NETWORK</button>
     </div>
 
     <div id="lobby-screen" class="panel hidden">
-        <h2>WAITING ROOM</h2>
+        <h2>LOBBY: <span id="lobby-name-display"></span></h2>
         <div id="player-list"></div>
         <div id="host-controls" class="hidden">
-            <p style="color: yellow;">YOU ARE THE HOST</p>
             <button class="btn" onclick="startGame()">START BREACH</button>
         </div>
         <div id="client-wait">
-            <p>Waiting for host to initialize...</p>
+            <p>WAITING FOR HOST...</p>
         </div>
     </div>
 
     <div id="game-screen" class="panel hidden">
-        <div id="task">INITIALIZING...</div>
+        <div id="task-type">IDENTIFYING PAYLOAD...</div>
+        <div id="task">...</div>
         <input type="text" id="answerInput" placeholder="DECRYPT_KEY" autocomplete="off">
         <div id="leaderboard"></div>
     </div>
@@ -48,6 +49,7 @@
         function join() {
             myRoom = document.getElementById('roomInput').value.toLowerCase();
             if(!myRoom) return;
+            document.getElementById('lobby-name-display').innerText = myRoom;
             socket.emit('join_room', myRoom);
             showScreen('lobby-screen');
         }
@@ -59,6 +61,37 @@
         function showScreen(id) {
             ['login-screen', 'lobby-screen', 'game-screen'].forEach(s => document.getElementById(s).classList.add('hidden'));
             document.getElementById(id).classList.remove('hidden');
+        }
+
+        // --- PUZZLE ENGINE ---
+        function generatePuzzle() {
+            const types = ['unscramble', 'binary', 'sequence'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            
+            if (type === 'unscramble') {
+                const words = ['DATABASE', 'PROTOCOL', 'FIREWALL', 'MAINBOARD', 'MALWARE', 'ENCRYPT'];
+                const target = words[Math.floor(Math.random() * words.length)];
+                currentAnswer = target.toLowerCase();
+                const scrambled = target.split('').sort(() => Math.random() - 0.5).join('');
+                document.getElementById('task-type').innerText = "TYPE: STRING_UNSCRAMBLE";
+                document.getElementById('task').innerText = scrambled;
+            } 
+            else if (type === 'binary') {
+                const num = Math.floor(Math.random() * 15) + 1;
+                currentAnswer = num.toString();
+                document.getElementById('task-type').innerText = "TYPE: BIN_TO_DEC";
+                document.getElementById('task').innerText = num.toString(2).padStart(4, '0');
+            }
+            else if (type === 'sequence') {
+                const start = Math.floor(Math.random() * 10);
+                const step = Math.floor(Math.random() * 5) + 2;
+                const seq = [start, start + step, start + (step*2)];
+                currentAnswer = (start + (step*3)).toString();
+                document.getElementById('task-type').innerText = "TYPE: LOGIC_SEQUENCE";
+                document.getElementById('task').innerText = `${seq.join(', ')}, ?`;
+            }
+            document.getElementById('answerInput').value = "";
+            document.getElementById('answerInput').focus();
         }
 
         socket.on('lobby_update', (data) => {
@@ -81,29 +114,20 @@
 
         socket.on('game_start', () => {
             showScreen('game-screen');
-            nextPuzzle();
+            generatePuzzle();
         });
-
-        function nextPuzzle() {
-            const a = Math.floor(Math.random() * 50) + 1;
-            const b = Math.floor(Math.random() * 50) + 1;
-            currentAnswer = (a + b).toString();
-            document.getElementById('task').innerText = `DECRYPT: ${a} + ${b}`;
-            document.getElementById('answerInput').value = "";
-            document.getElementById('answerInput').focus();
-        }
 
         document.getElementById('answerInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                if (document.getElementById('answerInput').value === currentAnswer) {
+                if (document.getElementById('answerInput').value.toLowerCase().trim() === currentAnswer) {
                     socket.emit('solve', myRoom);
-                    nextPuzzle();
+                    generatePuzzle();
                 }
             }
         });
 
         socket.on('winner', (data) => {
-            alert(`SYSTEM BREACHED BY ${data.name}!`);
+            alert(`BREACH SUCCESSFUL: ${data.name} reached the core!`);
             location.reload();
         });
     </script>
