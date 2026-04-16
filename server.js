@@ -17,9 +17,8 @@ io.on('connection', (socket) => {
             rooms[room] = { host: socket.id, active: false, players: {} };
         }
         
-        rooms[room].players[socket.id] = { score: 0, name: `User_${socket.id.substring(0,4)}` };
+        rooms[room].players[socket.id] = { score: 0, name: `Hacker_${socket.id.substring(0,4)}` };
         
-        // Tell everyone who is in the lobby
         io.to(room).emit('lobby_update', {
             players: rooms[room].players,
             host: rooms[room].host,
@@ -37,20 +36,19 @@ io.on('connection', (socket) => {
     socket.on('solve', (room) => {
         if (rooms[room] && rooms[room].active) {
             rooms[room].players[socket.id].score++;
-            const score = rooms[room].players[socket.id].score;
-            
             io.to(room).emit('lobby_update', { players: rooms[room].players });
 
-            if (score >= 15) {
+            if (rooms[room].players[socket.id].score >= 15) {
                 io.to(room).emit('winner', { id: socket.id, name: rooms[room].players[socket.id].name });
-                rooms[room].active = false; // Reset for next round
+                rooms[room].active = false;
             }
         }
     });
 
     socket.on('disconnect', () => {
-        // Simple cleanup could be added here
+        // Simple cleanup can be added here if needed
     });
 });
 
-server.listen(process.env.PORT || 3000, () => console.log('Server running'));
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
