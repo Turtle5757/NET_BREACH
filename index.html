@@ -1,65 +1,109 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>NET_BREACH GUI</title>
+    <title>NET_BREACH: MULTIPLAYER</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body { background: #000; color: #0f0; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        #game { display: none; text-align: center; }
-        .btn { background: #0f0; color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; margin: 5px; }
-        input { background: #111; color: #0f0; border: 1px solid #0f0; padding: 10px; }
-        #stats { position: fixed; top: 10px; right: 10px; border: 1px solid #0f0; padding: 10px; }
+        .panel { border: 1px solid #0f0; padding: 20px; background: #050505; text-align: center; width: 90%; max-width: 400px; box-shadow: 0 0 15px rgba(0,255,0,0.2); }
+        .hidden { display: none; }
+        .btn { background: #0f0; color: #000; border: none; padding: 12px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
+        input { background: #111; color: #0f0; border: 1px solid #0f0; padding: 10px; width: 90%; margin-bottom: 10px; outline: none; }
+        #leaderboard { margin-top: 20px; text-align: left; font-size: 0.8rem; border-top: 1px solid #0f0; padding-top: 10px; }
+        .player-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        #task { font-size: 1.4rem; color: #fff; margin-bottom: 15px; }
     </style>
 </head>
 <body>
-    <div id="lobby">
-        <h1>NET_BREACH v2.0</h1>
-        <input type="text" id="roomInput" placeholder="Enter Room Name...">
-        <button class="btn" onclick="join()">JOIN BREACH</button>
+
+    <div id="login-screen" class="panel">
+        <h1>NET_BREACH</h1>
+        <input type="text" id="roomInput" placeholder="LOBBY_ID">
+        <button class="btn" onclick="join()">CONNECT</button>
     </div>
 
-    <div id="game">
-        <h2 id="task">DECRYPTING...</h2>
-        <input type="text" id="answerInput" placeholder="Type answer...">
-        <button class="btn" onclick="check()">SUBMIT</button>
-        <div id="stats">Score: <span id="myScore">0</span>/15</div>
+    <div id="lobby-screen" class="panel hidden">
+        <h2>WAITING ROOM</h2>
+        <div id="player-list"></div>
+        <div id="host-controls" class="hidden">
+            <p style="color: yellow;">YOU ARE THE HOST</p>
+            <button class="btn" onclick="startGame()">START BREACH</button>
+        </div>
+        <div id="client-wait">
+            <p>Waiting for host to initialize...</p>
+        </div>
+    </div>
+
+    <div id="game-screen" class="panel hidden">
+        <div id="task">INITIALIZING...</div>
+        <input type="text" id="answerInput" placeholder="DECRYPT_KEY" autocomplete="off">
+        <div id="leaderboard"></div>
     </div>
 
     <script>
         const socket = io();
-        let room = "";
+        let myRoom = "";
         let currentAnswer = "";
 
         function join() {
-            room = document.getElementById('roomInput').value;
-            if(!room) return;
-            socket.emit('join_room', room);
-            document.getElementById('lobby').style.display = 'none';
-            document.getElementById('game').style.display = 'block';
-            nextPuzzle();
+            myRoom = document.getElementById('roomInput').value.toLowerCase();
+            if(!myRoom) return;
+            socket.emit('join_room', myRoom);
+            showScreen('lobby-screen');
         }
 
-        function nextPuzzle() {
-            const a = Math.floor(Math.random() * 50);
-            const b = Math.floor(Math.random() * 50);
-            currentAnswer = (a + b).toString();
-            document.getElementById('task').innerText = `CALCULATE: ${a} + ${b}`;
-            document.getElementById('answerInput').value = "";
+        function startGame() {
+            socket.emit('start_game', myRoom);
         }
 
-        function check() {
-            if (document.getElementById('answerInput').value === currentAnswer) {
-                socket.emit('solve', room);
-                nextPuzzle();
+        function showScreen(id) {
+            ['login-screen', 'lobby-screen', 'game-screen'].forEach(s => document.getElementById(s).classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        socket.on('lobby_update', (data) => {
+            const list = document.getElementById('player-list');
+            const board = document.getElementById('leaderboard');
+            list.innerHTML = "";
+            board.innerHTML = "<b>NETWORK NODES:</b><br>";
+
+            Object.keys(data.players).forEach(id => {
+                const p = data.players[id];
+                list.innerHTML += `<div>> ${p.name} ${id === data.host ? '[HOST]' : ''}</div>`;
+                board.innerHTML += `<div class="player-row"><span>${p.name}</span><span>${p.score}/15</span></div>`;
+            });
+
+            if (data.host === socket.id) {
+                document.getElementById('host-controls').classList.remove('hidden');
+                document.getElementById('client-wait').classList.add('hidden');
             }
-        }
-
-        socket.on('score_update', (data) => {
-            if(data.id === socket.id) document.getElementById('myScore').innerText = data.score;
         });
 
-        socket.on('winner', (id) => {
-            alert(id === socket.id ? "YOU WON! Mainframe Accessed." : "SYSTEM FAILURE: Another user won.");
+        socket.on('game_start', () => {
+            showScreen('game-screen');
+            nextPuzzle();
+        });
+
+        function nextPuzzle() {
+            const a = Math.floor(Math.random() * 50) + 1;
+            const b = Math.floor(Math.random() * 50) + 1;
+            currentAnswer = (a + b).toString();
+            document.getElementById('task').innerText = `DECRYPT: ${a} + ${b}`;
+            document.getElementById('answerInput').value = "";
+            document.getElementById('answerInput').focus();
+        }
+
+        document.getElementById('answerInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                if (document.getElementById('answerInput').value === currentAnswer) {
+                    socket.emit('solve', myRoom);
+                    nextPuzzle();
+                }
+            }
+        });
+
+        socket.on('winner', (data) => {
+            alert(`SYSTEM BREACHED BY ${data.name}!`);
             location.reload();
         });
     </script>
