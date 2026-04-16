@@ -4,36 +4,38 @@
     <title>NET_BREACH // MULTIPLAYER</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        body { background: #000; color: #0f0; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .panel { border: 1px solid #0f0; padding: 25px; background: #050505; text-align: center; width: 90%; max-width: 450px; box-shadow: 0 0 20px rgba(0,255,0,0.1); }
+        body { background: #000; color: #0f0; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
+        .panel { border: 1px solid #0f0; padding: 25px; background: #050505; text-align: center; width: 90%; max-width: 500px; box-shadow: 0 0 20px rgba(0,255,0,0.1); }
         .hidden { display: none; }
-        .btn { background: #0f0; color: #000; border: none; padding: 12px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; text-transform: uppercase; letter-spacing: 1px; }
+        .btn { background: #0f0; color: #000; border: none; padding: 12px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; text-transform: uppercase; }
         input { background: #111; color: #0f0; border: 1px solid #0f0; padding: 12px; width: 90%; margin-bottom: 10px; outline: none; font-size: 1.1rem; text-align: center; }
-        #leaderboard { margin-top: 20px; text-align: left; font-size: 0.8rem; border-top: 1px dashed #0f0; padding-top: 15px; }
-        .player-row { display: flex; justify-content: space-between; margin-bottom: 5px; color: #888; }
-        .me { color: #0f0; font-weight: bold; }
         #task-type { color: #008800; font-size: 0.7rem; margin-bottom: 8px; letter-spacing: 2px; }
-        #task { font-size: 1.5rem; color: #fff; margin-bottom: 25px; min-height: 60px; display: flex; align-items: center; justify-content: center; border: 1px solid #222; background: #080808; padding: 10px; }
+        #task { font-size: 1.8rem; color: #fff; margin-bottom: 25px; min-height: 60px; display: flex; align-items: center; justify-content: center; border: 1px solid #222; background: #080808; }
+        #leaderboard { margin-top: 20px; text-align: left; font-size: 0.7rem; border-top: 1px dashed #0f0; padding-top: 10px; height: 80px; overflow-y: auto; }
+        .player-row { display: flex; justify-content: space-between; margin-bottom: 2px; color: #666; }
+        .me { color: #0f0; }
+        #manual { margin-top: 15px; font-size: 0.65rem; color: #555; text-align: left; border: 1px solid #222; padding: 10px; background: #020202; }
+        .manual-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+        .manual-title { color: #0a0; font-weight: bold; margin-bottom: 5px; text-decoration: underline; }
+        .shake { animation: shake 0.2s ease-in-out 0s 2; border-color: red !important; }
+        @keyframes shake { 0% { margin-left: 0rem; } 25% { margin-left: 0.5rem; } 75% { margin-left: -0.5rem; } 100% { margin-left: 0rem; } }
     </style>
 </head>
 <body>
 
     <div id="login-screen" class="panel">
-        <h1 style="letter-spacing: 5px;">NET_BREACH</h1>
-        <p style="font-size: 0.7rem;">ESTABLISHING ENCRYPTED CONNECTION...</p>
-        <input type="text" id="roomInput" placeholder="LOBBY_IDENTIFIER">
-        <button class="btn" onclick="join()">INITIATE LINK</button>
+        <h1>NET_BREACH</h1>
+        <input type="text" id="roomInput" placeholder="LOBBY_ID">
+        <button class="btn" onclick="join()">CONNECT</button>
     </div>
 
     <div id="lobby-screen" class="panel hidden">
         <h2>CHANNEL: <span id="lobby-name-display" style="color:#fff"></span></h2>
-        <div id="player-list" style="margin-bottom: 20px;"></div>
+        <div id="player-list" style="margin-bottom: 10px;"></div>
         <div id="host-controls" class="hidden">
             <button class="btn" onclick="startGame()">EXECUTE BREACH</button>
         </div>
-        <div id="client-wait">
-            <p style="color: #666;">AWAITING HOST AUTHORIZATION...</p>
-        </div>
+        <div id="client-wait">AWAITING HOST...</div>
     </div>
 
     <div id="game-screen" class="panel hidden">
@@ -41,6 +43,15 @@
         <div id="task">...</div>
         <input type="text" id="answerInput" placeholder="ENTER_KEY" autocomplete="off">
         <div id="leaderboard"></div>
+        <div id="manual">
+            <div class="manual-title">DECRYPTION MANUAL (v1.1)</div>
+            <div class="manual-grid">
+                <div><b>HEX:</b> A=10, B=11, C=12, D=13, E=14, F=15</div>
+                <div><b>PORTS:</b> HTTP:80, HTTPS:443, SSH:22, DNS:53</div>
+                <div><b>CIPHER:</b> Shift 1 back (B->A)</div>
+                <div><b>BINARY:</b> 8-4-2-1 logic</div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -56,9 +67,7 @@
             showScreen('lobby-screen');
         }
 
-        function startGame() {
-            socket.emit('start_game', myRoom);
-        }
+        function startGame() { socket.emit('start_game', myRoom); }
 
         function showScreen(id) {
             ['login-screen', 'lobby-screen', 'game-screen'].forEach(s => document.getElementById(s).classList.add('hidden'));
@@ -73,9 +82,8 @@
                 const words = ['DATABASE', 'PROTOCOL', 'FIREWALL', 'MAINBOARD', 'MALWARE', 'ENCRYPT', 'SOCKET'];
                 const target = words[Math.floor(Math.random() * words.length)];
                 currentAnswer = target.toLowerCase();
-                const scrambled = target.split('').sort(() => Math.random() - 0.5).join('');
                 document.getElementById('task-type').innerText = "SYS: STRING_UNSCRAMBLE";
-                document.getElementById('task').innerText = scrambled;
+                document.getElementById('task').innerText = target.split('').sort(() => Math.random() - 0.5).join('');
             } 
             else if (type === 'binary') {
                 const num = Math.floor(Math.random() * 15) + 1;
@@ -102,7 +110,7 @@
                 const target = words[Math.floor(Math.random() * words.length)];
                 currentAnswer = target;
                 const shifted = target.split('').map(c => String.fromCharCode(c.charCodeAt(0) + 1)).join('');
-                document.getElementById('task-type').innerText = "SYS: CIPHER_ROT1";
+                document.getElementById('task-type').innerText = "SYS: CIPHER_ROT1 (SHIFT -1)";
                 document.getElementById('task').innerText = shifted.toUpperCase();
             }
             else if (type === 'port') {
@@ -120,13 +128,14 @@
             const list = document.getElementById('player-list');
             const board = document.getElementById('leaderboard');
             list.innerHTML = "";
-            board.innerHTML = "<b>ACTIVE NODES:</b><br>";
+            board.innerHTML = "";
 
             Object.keys(data.players).forEach(id => {
                 const p = data.players[id];
                 const isMe = id === socket.id;
                 list.innerHTML += `<div style="${isMe ? 'color:#0f0' : ''}">> ${p.name} ${id === data.host ? '[HOST]' : ''}</div>`;
-                board.innerHTML += `<div class="player-row ${isMe ? 'me' : ''}"><span>${p.name}</span><span>${p.score}/15</span></div>`;
+                // UPDATE UI TO SHOW /10
+                board.innerHTML += `<div class="player-row ${isMe ? 'me' : ''}"><span>${p.name}</span><span>${p.score}/10</span></div>`;
             });
 
             if (data.host === socket.id) {
@@ -135,22 +144,23 @@
             }
         });
 
-        socket.on('game_start', () => {
-            showScreen('game-screen');
-            generatePuzzle();
-        });
+        socket.on('game_start', () => { showScreen('game-screen'); generatePuzzle(); });
 
         document.getElementById('answerInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                if (document.getElementById('answerInput').value.toLowerCase().trim() === currentAnswer) {
+                const input = document.getElementById('answerInput');
+                if (input.value.toLowerCase().trim() === currentAnswer) {
                     socket.emit('solve', myRoom);
                     generatePuzzle();
+                } else {
+                    input.classList.add('shake');
+                    setTimeout(() => input.classList.remove('shake'), 200);
                 }
             }
         });
 
         socket.on('winner', (data) => {
-            alert(`BREACH COMPLETE! ${data.name} is in the system.`);
+            alert(`BREACH SUCCESS: ${data.name} reached the core!`);
             location.reload();
         });
     </script>
