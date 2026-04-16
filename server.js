@@ -36,9 +36,12 @@ io.on('connection', (socket) => {
     socket.on('solve', (room) => {
         if (rooms[room] && rooms[room].active) {
             rooms[room].players[socket.id].score++;
+            const score = rooms[room].players[socket.id].score;
+            
             io.to(room).emit('lobby_update', { players: rooms[room].players });
 
-            if (rooms[room].players[socket.id].score >= 15) {
+            // WIN CONDITION SET TO 10
+            if (score >= 10) {
                 io.to(room).emit('winner', { id: socket.id, name: rooms[room].players[socket.id].name });
                 rooms[room].active = false;
             }
@@ -46,9 +49,9 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        // Simple cleanup can be added here if needed
+        // Basic cleanup logic can be added if players leave
     });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`NET_BREACH Server Online on port ${PORT}`));
