@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NET_BREACH GUI</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { background: #000; color: #0f0; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        #game { display: none; text-align: center; }
+        .btn { background: #0f0; color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; margin: 5px; }
+        input { background: #111; color: #0f0; border: 1px solid #0f0; padding: 10px; }
+        #stats { position: fixed; top: 10px; right: 10px; border: 1px solid #0f0; padding: 10px; }
+    </style>
+</head>
+<body>
+    <div id="lobby">
+        <h1>NET_BREACH v2.0</h1>
+        <input type="text" id="roomInput" placeholder="Enter Room Name...">
+        <button class="btn" onclick="join()">JOIN BREACH</button>
+    </div>
+
+    <div id="game">
+        <h2 id="task">DECRYPTING...</h2>
+        <input type="text" id="answerInput" placeholder="Type answer...">
+        <button class="btn" onclick="check()">SUBMIT</button>
+        <div id="stats">Score: <span id="myScore">0</span>/15</div>
+    </div>
+
+    <script>
+        const socket = io();
+        let room = "";
+        let currentAnswer = "";
+
+        function join() {
+            room = document.getElementById('roomInput').value;
+            if(!room) return;
+            socket.emit('join_room', room);
+            document.getElementById('lobby').style.display = 'none';
+            document.getElementById('game').style.display = 'block';
+            nextPuzzle();
+        }
+
+        function nextPuzzle() {
+            const a = Math.floor(Math.random() * 50);
+            const b = Math.floor(Math.random() * 50);
+            currentAnswer = (a + b).toString();
+            document.getElementById('task').innerText = `CALCULATE: ${a} + ${b}`;
+            document.getElementById('answerInput').value = "";
+        }
+
+        function check() {
+            if (document.getElementById('answerInput').value === currentAnswer) {
+                socket.emit('solve', room);
+                nextPuzzle();
+            }
+        }
+
+        socket.on('score_update', (data) => {
+            if(data.id === socket.id) document.getElementById('myScore').innerText = data.score;
+        });
+
+        socket.on('winner', (id) => {
+            alert(id === socket.id ? "YOU WON! Mainframe Accessed." : "SYSTEM FAILURE: Another user won.");
+            location.reload();
+        });
+    </script>
+</body>
+</html>
